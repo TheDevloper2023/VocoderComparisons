@@ -25,7 +25,7 @@ class Denoiser(torch.nn.Module):
             raise Exception("Mode {} if not supported".format(mode))
 
         with torch.no_grad():
-            bias_audio = hifigan(mel_input).view(1, -1).float()
+            bias_audio = hifigan(mel_input).view(1, -1).float().cpu().numpy()
             bias_spec, _ = self.stft.transform(bias_audio)
 
         self.register_buffer("bias_spec", bias_spec[:, :, 0][:, :, None])
@@ -36,3 +36,4 @@ class Denoiser(torch.nn.Module):
         audio_spec_denoised = torch.clamp(audio_spec_denoised, 0.0)
         audio_denoised = self.stft.inverse(audio_spec_denoised, audio_angles)
         return audio_denoised
+
