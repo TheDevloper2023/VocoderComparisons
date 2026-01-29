@@ -18,6 +18,9 @@ from models import Generator, MultiPeriodDiscriminator, MultiScaleDiscriminator,
     discriminator_loss
 from hifiutils import plot_spectrogram, scan_checkpoint, load_checkpoint, save_checkpoint
 
+import atexit, signal
+
+
 torch.backends.cudnn.benchmark = True
 
 
@@ -109,6 +112,32 @@ def train(rank, a, h, warm_start):
     generator.train()
     mpd.train()
     msd.train()
+
+           # Save when the training stops / crashes
+
+    def _save_on_shutdown(signum=None, frame=None):
+            print("\n" + "Saving checkpoint at step {self.global_step}")
+            try:
+                self.save_checkpoint(
+                    f"{self.checkpoint_name}_step_{self.global_step}",
+                    model=model,
+                    optimizer=optimizer,
+                    iteration=epoch,
+                    learning_rate=self.learning_rate,
+                    global_step=self.global_step,
+                )
+                print("E-Checkpoint saved!")
+            except Exception as e:
+                print("Failed to save E-Checkpoint due: ", e)
+            finally:
+                if signum is not None:
+                    os._exit(0) # force exit safely
+
+
+        #Register
+    atexit.register(_save_on_shutdown)
+    signal.signal(signal.SIGTERM, _save_on_shutdown)
+
     for epoch in range(max(0, last_epoch), a.training_epochs):
         for param_group in optim_g.param_groups:
             print("Current learning rate: " + str(param_group["lr"]))
@@ -282,3 +311,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
